@@ -5,7 +5,9 @@ A super simple FastAPI application that allows students to view and sign up
 for extracurricular activities at Mergington High School.
 """
 
-from fastapi import FastAPI, HTTPException
+import email
+from fastapi import FastAPI, HTTPException, Body, Request
+from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
@@ -21,6 +23,7 @@ app.mount("/static", StaticFiles(directory=os.path.join(Path(__file__).parent,
 
 # In-memory activity database
 activities = {
+    # Intellectual
     "Chess Club": {
         "description": "Learn strategies and compete in chess tournaments",
         "schedule": "Fridays, 3:30 PM - 5:00 PM",
@@ -33,14 +36,57 @@ activities = {
         "max_participants": 20,
         "participants": ["emma@mergington.edu", "sophia@mergington.edu"]
     },
+    "Math Olympiad": {
+        "description": "Prepare for math competitions and solve challenging problems",
+        "schedule": "Wednesdays, 4:00 PM - 5:30 PM",
+        "max_participants": 15,
+        "participants": []
+    },
+    "Science Club": {
+        "description": "Explore science experiments and participate in science fairs",
+        "schedule": "Mondays, 3:30 PM - 5:00 PM",
+        "max_participants": 18,
+        "participants": []
+    },
+    # Sports
     "Gym Class": {
         "description": "Physical education and sports activities",
         "schedule": "Mondays, Wednesdays, Fridays, 2:00 PM - 3:00 PM",
         "max_participants": 30,
         "participants": ["john@mergington.edu", "olivia@mergington.edu"]
+    },
+    "Soccer Team": {
+        "description": "Join the school soccer team and compete in matches",
+        "schedule": "Tuesdays and Thursdays, 4:00 PM - 5:30 PM",
+        "max_participants": 22,
+        "participants": []
+    },
+    "Basketball Club": {
+        "description": "Practice basketball skills and play friendly games",
+        "schedule": "Fridays, 5:00 PM - 6:30 PM",
+        "max_participants": 20,
+        "participants": []
+    },
+    # Artistic
+    "Art Club": {
+        "description": "Explore different art techniques and create your own masterpieces",
+        "schedule": "Thursdays, 3:30 PM - 5:00 PM",
+        "max_participants": 16,
+        "participants": []
+    },
+    "Drama Society": {
+        "description": "Act in plays and learn about theater production",
+        "schedule": "Wednesdays, 5:00 PM - 6:30 PM",
+        "max_participants": 14,
+        "participants": []
+    },
+    "Music Ensemble": {
+        "description": "Perform music in a group and learn new instruments",
+        "schedule": "Mondays, 4:00 PM - 5:30 PM",
+        "max_participants": 12,
+        "participants": []
     }
 }
-
 
 @app.get("/")
 def root():
@@ -52,6 +98,23 @@ def get_activities():
     return activities
 
 
+# Pydantic model for unregister request
+class UnregisterRequest(BaseModel):
+    email: str
+
+@app.post("/activities/{activity_name}/unregister")
+def unregister_from_activity(activity_name: str, req: UnregisterRequest):
+    """Unregister a student from an activity"""
+    if activity_name not in activities:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    activity = activities[activity_name]
+    email = req.email
+    if email not in activity["participants"]:
+        raise HTTPException(status_code=400, detail="Student is not registered")
+    activity["participants"].remove(email)
+    return {"message": f"Unregistered {email} from {activity_name}"}
+
+
 @app.post("/activities/{activity_name}/signup")
 def signup_for_activity(activity_name: str, email: str):
     """Sign up a student for an activity"""
@@ -61,6 +124,10 @@ def signup_for_activity(activity_name: str, email: str):
 
     # Get the specific activity
     activity = activities[activity_name]
+
+    # Validate student is not already signed up
+    if email in activity["participants"]:
+        raise HTTPException(status_code=400, detail="Student is already signed up")
 
     # Add student
     activity["participants"].append(email)

@@ -20,12 +20,74 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
+        // Build participants list HTML
+        let participantsHTML = "";
+        if (details.participants.length > 0) {
+          participantsHTML = `
+            <div class="participants-section">
+              <strong>Participants:</strong>
+              <ul class="participants-list">
+                ${details.participants.map(email => `
+                  <li class="participant-item">
+                    <span class="participant-email">${email}</span>
+                    <span class="delete-participant" title="Remove participant" data-activity="${name}" data-email="${email}">&times;</span>
+                  </li>
+                `).join("")}
+              </ul>
+            </div>
+          `;
+        } else {
+          participantsHTML = `
+            <div class="participants-section">
+              <strong>Participants:</strong>
+              <span class="no-participants">No participants yet</span>
+            </div>
+          `;
+        }
+
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          ${participantsHTML}
         `;
+
+        // Add event listeners for delete icons
+        setTimeout(() => {
+          const deleteIcons = activityCard.querySelectorAll('.delete-participant');
+          deleteIcons.forEach(icon => {
+            icon.addEventListener('click', function(e) {
+              const activity = this.getAttribute('data-activity');
+              const email = this.getAttribute('data-email');
+              if (confirm(`Remove ${email} from ${activity}?`)) {
+                unregisterParticipant(activity, email, activityCard);
+              }
+            });
+          });
+        }, 0);
+
+        // Unregister participant function
+        async function unregisterParticipant(activity, email, cardElem) {
+          try {
+            const response = await fetch(`/activities/${encodeURIComponent(activity)}/unregister`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ email })
+            });
+            if (!response.ok) {
+              const data = await response.json();
+              alert(data.detail || "Failed to unregister participant.");
+              return;
+            }
+            // Refresh activities list
+            fetchActivities();
+          } catch (err) {
+            alert("Error unregistering participant.");
+          }
+        }
 
         activitiesList.appendChild(activityCard);
 
